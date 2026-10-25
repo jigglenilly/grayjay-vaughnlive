@@ -168,7 +168,7 @@ Sending a message, from the player, is:
 CHAT #vl-{slug},{uuid} :{message}\n
 ```
 
-Grayjay has no plugin method for sending live chat. The script does not invent one. `getLiveChatWindow` returns the channel URL and hides `.vidPlayer` and `.wrapper_header2` so the webview is closer to the chat column (`#vs_chatv9_chatbox`). Whether that webview shares the login cookies well enough for the user to type was not verified.
+Grayjay has no plugin method for sending live chat. The script does not invent one. `getLiveChatWindow` returns the site's pop-out chat page, `https://vaughn.live/{slug}/chat`, which is chat-only (the same approach the Twitch and Kick plugins take).
 
 ## Login
 
@@ -231,7 +231,7 @@ A logged-in Vaughn body was not captured. The parser is tested against a fixture
 | `getChannel` / `getChannelContents` | Stream API. Contents is the live stream, or empty when off air |
 | `getContentDetails` | Stream API + first working HLS playlist, `live` set, `video` empty |
 | `getLiveEvents` | Chat websocket. Comments and one viewer-count event |
-| `getLiveChatWindow` | Channel page with the player hidden |
+| `getLiveChatWindow` | Pop-out chat page `/{slug}/chat` |
 | `getUserSubscriptions` | `/app/content_menu.php?a=following` |
 | `getComments` | Empty. Chat is live events, not comments |
 

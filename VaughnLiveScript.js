@@ -191,11 +191,8 @@ source.getSubComments = function () {
 source.getLiveChatWindow = function (url) {
 	const slug = slugFromUrl(url);
 	if (!slug) return null;
-	return {
-		url: channelUrl(slug),
-		// The channel page is the only chat UI. Hide the player so the webview is chat-sized.
-		removeElements: [".vidPlayer", ".wrapper_header2"],
-	};
+	// Pop-out chat page, like the Twitch and Kick plugins use.
+	return { url: channelUrl(slug) + "/chat" };
 };
 
 source.getLiveEvents = function (url) {

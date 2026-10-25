@@ -293,7 +293,7 @@ function unitTests() {
 	const comments = page.results.filter((item) => item.eventType === "comment");
 	assert(comments.length === 1 && comments[0].name === "kirbykrazy2" && comments[0].message === "can't wait", "mocked chat history", JSON.stringify(comments));
 	const windowDesc = sandbox.source.getLiveChatWindow("https://vaughn.live/totally_70s");
-	assert(windowDesc && windowDesc.url === "https://vaughn.live/totally_70s" && windowDesc.removeElements.length === 2, "live chat window");
+	assert(windowDesc && windowDesc.url === "https://vaughn.live/totally_70s/chat", "live chat window");
 
 	const homeHtml = '<!DOCTYPE html><html><head><title>Vaughn Live - Live stream your life</title>' +
 		'<script src="/cdn-cgi/challenge-platform/scripts/jsd/main.js"></script></head><body>' +
