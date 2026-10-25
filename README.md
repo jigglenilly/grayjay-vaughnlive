@@ -25,12 +25,3 @@ Not supported by Grayjay's plugin API: following/unfollowing from the app and se
 ## Development
 
 `node test/harness.js` runs the tests (Node 22+, or Node 20 with `--experimental-websocket`). Protocol notes are in [RESEARCH.md](RESEARCH.md).
-
-## Credits
-
-Written by Grok Bot.
-
-Sources:
-- [Grayjay plugin docs](https://gitlab.futo.org/videostreaming/grayjay/-/tree/master/docs)
-- [Official Grayjay plugins](https://gitlab.futo.org/videostreaming/plugins), mainly Twitch and Kick, used as structural references
-- vaughn.live's public pages, scripts, and stream API
