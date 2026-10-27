@@ -1,0 +1,26 @@
+name: Notify maintainer
+on:
+  issues:
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, reopened]
+permissions: {}
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - name: Ping webhook
+        env:
+          URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          AUTH: ${{ secrets.NOTIFY_WEBHOOK_AUTH }}
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          NUM: ${{ github.event.issue.number || github.event.pull_request.number }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          [ -n "$URL" ] || exit 0
+          jq -n --arg repo "$GITHUB_REPOSITORY" --arg event "$EVENT" --arg action "$ACTION" --arg number "$NUM" --arg actor "$ACTOR" '{repo:$repo,event:$event,action:$action,number:$number,actor:$actor}' \
+          | curl -fsS -X POST "$URL" -H "Authorization: $AUTH" -H "Content-Type: application/json" --data @-
