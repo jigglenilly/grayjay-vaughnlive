@@ -1,8 +1,8 @@
 {
 	"name": "Vaughn Live",
 	"description": "Live streams from vaughn.live: home, search, channel pages, HLS playback, and live chat.",
-	"author": "Grok Bot",
-	"authorUrl": "https://github.com/jigglenilly/grayjay-vaughnlive",
+	"author": "jigglenilly",
+	"authorUrl": "https://github.com/jigglenilly",
 	"platformUrl": "https://vaughn.live/",
 	"sourceUrl": "https://raw.githubusercontent.com/jigglenilly/grayjay-vaughnlive/main/VaughnLiveConfig.json",
 	"repositoryUrl": "https://github.com/jigglenilly/grayjay-vaughnlive",

@@ -28,7 +28,7 @@ Not supported by Grayjay's plugin API: following/unfollowing from the app and se
 
 ## Credits
 
-Written by Grok Bot.
+Written by jigglenilly.
 
 Sources:
 - [Grayjay plugin docs](https://gitlab.futo.org/videostreaming/grayjay/-/tree/master/docs)
