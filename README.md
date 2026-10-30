@@ -15,7 +15,7 @@ https://raw.githubusercontent.com/jigglenilly/grayjay-vaughnlive/main/VaughnLive
 - Home feed of live channels
 - Search channels
 - Channel pages
-- Live playback (HLS)
+- Live playback (HLS, with HTTP-FLV fallback)
 - Live chat
 - Login through Grayjay's built-in sign-in
 - Import followed channels

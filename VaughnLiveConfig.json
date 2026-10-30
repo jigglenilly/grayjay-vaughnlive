@@ -7,7 +7,7 @@
 	"sourceUrl": "https://raw.githubusercontent.com/jigglenilly/grayjay-vaughnlive/main/VaughnLiveConfig.json",
 	"repositoryUrl": "https://github.com/jigglenilly/grayjay-vaughnlive",
 	"scriptUrl": "./VaughnLiveScript.js",
-	"version": 5,
+	"version": 6,
 	"iconUrl": "./VaughnLiveIcon.png",
 	"id": "a3e5e2d9-8a86-4704-be0e-c32bca484265",
 	"scriptSignature": "",
@@ -46,6 +46,12 @@
 		],
 		"4": [
 			"Login completes on vsk1, vsk2, and vsk3. vsk0 stays a visitor cookie."
+		],
+		"5": [
+			"Live chat uses the pop-out chat page."
+		],
+		"6": [
+			"Fixes \"No HLS playlist was available\": HLS hosts are probed together, gateway33 first, and playback falls back to the site's HTTP-FLV stream when no playlist answers."
 		]
 	}
 }

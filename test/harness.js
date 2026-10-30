@@ -123,6 +123,9 @@ class LiveEventViewCount {
 class HLSSource {
 	constructor(obj) { Object.assign(this, obj || {}); }
 }
+class VideoUrlSource {
+	constructor(obj) { Object.assign(this, obj || {}); }
+}
 class VideoSourceDescriptor {
 	constructor(sources) { this.sources = sources || []; }
 }
@@ -134,6 +137,14 @@ const http = {
 	},
 	socket() {
 		throw new Error("http.socket was not stubbed");
+	},
+	batch() {
+		const calls = [];
+		const builder = {
+			GET(url, headers, auth) { calls.push([url, headers, auth]); return builder; },
+			execute() { return calls.map((c) => http.GET(c[0], c[1], c[2])); },
+		};
+		return builder;
 	},
 };
 
@@ -157,6 +168,7 @@ const sandbox = {
 	LiveEventComment,
 	LiveEventViewCount,
 	HLSSource,
+	VideoUrlSource,
 	VideoSourceDescriptor,
 	Type,
 	TextDecoder,
@@ -221,6 +233,16 @@ function unitTests() {
 
 	assert(sandbox.decodeVaughnText(b64("Non #045 Stop")) === "Non-Stop", "status hyphen code");
 	assert(sandbox.decodeVaughnText(b64("24 #047 7")) === "24/7", "status slash code");
+	http.GET = function (url) {
+		if (String(url).indexOf("api.vaughnsoft.net") >= 0) {
+			return { isOk: true, code: 200, body: JSON.stringify({ status: 200, live: true, viewers: "3", followers: "1", pageviews: "9", lastlive: "1" }) };
+		}
+		return { isOk: false, code: 444, body: "" };
+	};
+	const fallback = sandbox.source.getContentDetails("https://vaughn.live/citycam");
+	assert(!fallback.live && fallback.video.sources.length === 1, "no playlist falls back to one flv source");
+	assert(fallback.video.sources[0].url === "https://stream-cdn-iad3.vaughnsoft.net/play/live_citycam.flv", "flv url", fallback.video.sources[0].url);
+
 	const caps = sandbox.source.getSearchCapabilities();
 	assert(caps.types && caps.types[0] === Type.Feed.Mixed, "search capabilities");
 
@@ -441,9 +463,21 @@ function liveTests() {
 	}
 	if (details) {
 		assert(details.isLive === true, "totally_70s is live");
-		assert(details.live && String(details.live.url).indexOf(".m3u8") > 0, "hls url", details.live && details.live.url);
-		assert(details.video && details.video.sources.length === 0, "vod descriptor stays empty");
 		assert(details.viewCount >= 0, "viewer count present", details.viewCount);
+		if (!details.live) {
+			const flv = details.video && details.video.sources[0];
+			assert(flv && /\.flv$/.test(flv.url), "flv fallback when no playlist answered", flv && flv.url);
+		}
+		const flvPath = path.join("/tmp", "vaughn-live-flv.bin");
+		try { fs.unlinkSync(flvPath); } catch (e) {}
+		// Live FLV never ends, so curl stops on its time limit.
+		try { execFileSync("curl", ["-sS", "--max-time", "4", "-A", "Mozilla/5.0", "-H", "Referer: https://vaughn.live/", "-o", flvPath, "https://stream-cdn-iad3.vaughnsoft.net/play/live_totally_70s.flv"], { stdio: "ignore" }); } catch (e) {}
+		const flvHead = fs.existsSync(flvPath) ? fs.readFileSync(flvPath).slice(0, 3).toString("latin1") : "";
+		assert(flvHead === "FLV", "flv stream starts with an FLV header", flvHead);
+	}
+	if (details && details.live) {
+		assert(String(details.live.url).indexOf(".m3u8") > 0, "hls url", details.live.url);
+		assert(details.video && details.video.sources.length === 0, "no flv source when hls works");
 		const playlist = curlGet(details.live.url, { Referer: "https://vaughn.live/" });
 		assert(playlist.isOk && playlist.body.indexOf("#EXTM3U") >= 0, "playlist downloads", playlist.code);
 		const segment = (playlist.body.match(/^https?:\/\/\S+\.ts$/m) || [])[0];

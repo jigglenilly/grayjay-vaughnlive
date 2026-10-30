@@ -8,10 +8,13 @@
 const PLATFORM = "Vaughn Live";
 const BASE_URL = "https://vaughn.live/";
 const API_STREAM = "https://api.vaughnsoft.net/v1/stream/vl/";
+// vaughn.live's own player uses gateway33 for HLS. Clutch often answers 444 or stalls.
 const HLS_HOSTS = [
-	"https://clutch.vaughnsoft.net",
 	"https://gateway33.vaughnsoft.net",
+	"https://clutch.vaughnsoft.net",
 ];
+// The site's default web player now plays HTTP-FLV from this host.
+const FLV_BASE = "https://stream-cdn-iad3.vaughnsoft.net/play/live_";
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 const RESERVED_SLUGS = {
@@ -146,15 +149,10 @@ source.getContentDetails = function (url) {
 	if (!info || !info.exists) throw new ScriptException("Channel not found: " + slug);
 	if (!info.live) throw offlineError((info.label || slug) + " is off air");
 
+	// HLS when a playlist answers, otherwise the HTTP-FLV stream the site itself plays.
 	const playlist = firstWorkingPlaylist(slug);
-	if (!playlist) {
-		const why = info.webrtc
-			? "This stream is marked WebRTC-only and no HLS playlist was available."
-			: "No HLS playlist was available for this live stream.";
-		throw offlineError(why);
-	}
-
-	const hls = makeHls(playlist);
+	const hls = playlist ? makeHls(playlist) : null;
+	const sources = playlist ? [] : [makeFlv(slug)];
 	const details = new PlatformVideoDetails({
 		id: new PlatformID(PLATFORM, slug, config.id),
 		name: info.title || info.label || slug,
@@ -166,7 +164,7 @@ source.getContentDetails = function (url) {
 		url: channelUrl(slug),
 		isLive: true,
 		description: channelDescription(info),
-		video: new VideoSourceDescriptor([]),
+		video: new VideoSourceDescriptor(sources),
 		live: hls,
 	});
 
@@ -478,17 +476,49 @@ function fetchStream(slug) {
 }
 
 function firstWorkingPlaylist(slug) {
-	const suffixes = ["", "-high", "-medium", "-low"];
-	for (let h = 0; h < HLS_HOSTS.length; h++) {
-		for (let s = 0; s < suffixes.length; s++) {
-			const url = HLS_HOSTS[h] + "/vl/" + slug + suffixes[s] + ".m3u8";
-			try {
-				const body = httpGet(url, mediaHeaders(), false);
-				if (String(body).indexOf("#EXTM3U") >= 0) return url;
-			} catch (e) {}
+	const urls = HLS_HOSTS.map((host) => host + "/vl/" + slug + ".m3u8");
+	let responses = null;
+	// Probe the hosts at once. A stalled host can take 15+ seconds.
+	try {
+		if (typeof http.batch === "function") {
+			let batch = http.batch();
+			urls.forEach((url) => { batch = batch.GET(url, mediaHeaders(), false); });
+			responses = batch.execute();
 		}
+	} catch (e) {
+		responses = null;
+	}
+	if (!responses || responses.length !== urls.length) {
+		responses = urls.map((url) => {
+			try { return http.GET(url, mediaHeaders(), false); } catch (e) { return null; }
+		});
+	}
+	for (let i = 0; i < urls.length; i++) {
+		const resp = responses[i];
+		if (resp && resp.isOk !== false && String(resp.body || "").indexOf("#EXTM3U") >= 0) return urls[i];
 	}
 	return "";
+}
+
+function makeFlv(slug) {
+	return new VideoUrlSource({
+		name: "Live (FLV)",
+		width: 0,
+		height: 0,
+		container: "video/x-flv",
+		codec: "",
+		bitrate: 0,
+		duration: 0,
+		url: FLV_BASE + slug + ".flv",
+		requestModifier: {
+			headers: {
+				// vaughnsoft hosts stall for player-library agents such as ExoPlayer and okhttp.
+				"User-Agent": USER_AGENT,
+				Referer: BASE_URL,
+				Origin: "https://vaughn.live",
+			},
+		},
+	});
 }
 
 function makeHls(url) {
@@ -499,6 +529,8 @@ function makeHls(url) {
 		priority: true,
 		requestModifier: {
 			headers: {
+				// vaughnsoft hosts stall for player-library agents such as ExoPlayer and okhttp.
+				"User-Agent": USER_AGENT,
 				Referer: BASE_URL,
 				Origin: "https://vaughn.live",
 			},

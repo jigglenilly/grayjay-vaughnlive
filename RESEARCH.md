@@ -84,7 +84,9 @@ A live playlist is a media playlist, not a master:
 https://s3.vaughnsoft.net/live/live_totally_70s-0.ts
 ```
 
-Quality suffixes often point at the same segments when the channel is not transcoded. The plugin probes clutch, then gateway, and the suffixes `""`, `-high`, `-medium`, `-low`, and exposes the first body that contains `#EXTM3U` as one HLS source named `Live`. That avoids handing Grayjay a URL that sometimes answers HTTP 444.
+Quality suffixes often point at the same segments when the channel is not transcoded. The plugin probes clutch, then gateway, and the suffixes `""`, `-high`, `-medium`, `-low`, and exposes the first body that contains `#EXTM3U` as one HLS source named `Live`.
+
+Update (v6): the site's own HLS code uses gateway33, and its default web player (`sApi` player type `6`) now plays HTTP-FLV with mpegts.js from `https://stream-cdn-iad3.vaughnsoft.net/play/live_{slug}.flv` (H.264 + AAC, no token). Both HLS hosts intermittently stall 5–20 s or answer HTTP 444 on live channels, which made the old sequential probe of 8 URLs fail with "No HLS playlist was available". The plugin now probes the two unsuffixed playlists at once with `http.batch()`, gateway33 first, and if neither answers it returns the FLV URL as a `VideoUrlSource`. The FLV host stalls for `curl`, `okhttp`, and `ExoPlayerLib` user agents and answers for browser-like ones, so the request modifier sends a browser User-Agent.
 
 `webrtc: true` on the REST object means the channel expects a WebRTC player. If no playlist responds, playback fails with that reason.
 
@@ -229,7 +231,7 @@ A logged-in Vaughn body was not captured. The parser is tested against a fixture
 | `getHome` | Homepage HTML cards |
 | `search` / `searchSuggestions` / `searchChannels` | `/app/search.php`, then the stream API |
 | `getChannel` / `getChannelContents` | Stream API. Contents is the live stream, or empty when off air |
-| `getContentDetails` | Stream API + first working HLS playlist, `live` set, `video` empty |
+| `getContentDetails` | Stream API + first working HLS playlist as `live`, or the HTTP-FLV `VideoUrlSource` when no playlist answers |
 | `getLiveEvents` | Chat websocket. Comments and one viewer-count event |
 | `getLiveChatWindow` | Pop-out chat page `/{slug}/chat` |
 | `getUserSubscriptions` | `/app/content_menu.php?a=following` |
