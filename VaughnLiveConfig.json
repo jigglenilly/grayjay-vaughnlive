@@ -7,7 +7,7 @@
 	"sourceUrl": "https://raw.githubusercontent.com/jigglenilly/grayjay-vaughnlive/main/VaughnLiveConfig.json",
 	"repositoryUrl": "https://github.com/jigglenilly/grayjay-vaughnlive",
 	"scriptUrl": "./VaughnLiveScript.js",
-	"version": 6,
+	"version": 7,
 	"iconUrl": "./VaughnLiveIcon.png",
 	"id": "a3e5e2d9-8a86-4704-be0e-c32bca484265",
 	"scriptSignature": "",
@@ -52,6 +52,13 @@
 		],
 		"6": [
 			"Added backup stream servers so channels that wouldn't load play again."
+		],
+		"7": [
+			"Channel links with capital letters work properly now",
+			"Chat shows up even when a stream falls back to the backup server",
+			"Quiet channels skip half-loaded streams so they don't stall",
+			"You can switch between the main and backup stream if one acts up",
+			"Chat connects to the right server for every channel"
 		]
 	}
 }

@@ -151,8 +151,12 @@ source.getContentDetails = function (url) {
 
 	// HLS when a playlist answers, otherwise the HTTP-FLV stream the site itself plays.
 	const playlist = firstWorkingPlaylist(slug);
-	const hls = playlist ? makeHls(playlist) : null;
-	const sources = playlist ? [] : [makeFlv(slug)];
+	const flv = makeFlv(slug);
+	// Grayjay only starts live chat when `live` is set, so it is never left empty.
+	// Ready HLS plays first with FLV as the manual alternate; on a cold channel FLV
+	// (which starts in under a second) plays first and HLS is offered once warmed.
+	const live = playlist ? makeHls(playlist) : flv;
+	const sources = playlist ? [flv] : [makeHls(HLS_HOSTS[HLS_HOSTS.length - 1] + "/vl/" + slug + ".m3u8")];
 	const details = new PlatformVideoDetails({
 		id: new PlatformID(PLATFORM, slug, config.id),
 		name: info.title || info.label || slug,
@@ -165,7 +169,7 @@ source.getContentDetails = function (url) {
 		isLive: true,
 		description: channelDescription(info),
 		video: new VideoSourceDescriptor(sources),
-		live: hls,
+		live: live,
 	});
 
 	details.getContentRecommendations = function () {
@@ -238,6 +242,18 @@ class FrontpagePager extends VideoPager {
 	}
 }
 
+// Mirrors the site's own chat host pick (vsm_chat_v9_kappa.js): a few fixed rooms,
+// otherwise hosts[(code(first) + code(last)) % 6] of "#vl-{slug}". Used when the
+// API does not name a chat server. Matched the API's chat_server on live channels.
+const CHAT_HOSTS = ["chat-ws-1x02", "chat-ws-1x03", "chat-ws-1x04", "chat-ws-1x05", "chat-ws-1x06", "chat-ws-1x07"];
+const CHAT_FIXED = { tech_corner: "chat-ws-1x02", community: "chat-ws-1x02", mark: "chat-ws-1x03" };
+function chatServerFor(slug) {
+	const name = String(slug || "").toLowerCase();
+	if (CHAT_FIXED[name]) return CHAT_FIXED[name] + ".vaughnsoft.net";
+	const room = "#vl-" + name;
+	return CHAT_HOSTS[(room.charCodeAt(0) + room.charCodeAt(room.length - 1)) % CHAT_HOSTS.length] + ".vaughnsoft.net";
+}
+
 class VaughnLiveEventPager extends LiveEventPager {
 	constructor(slug, info) {
 		super([], true, {});
@@ -247,7 +263,7 @@ class VaughnLiveEventPager extends LiveEventPager {
 		this.viewers = info.viewers || 0;
 		this._joined = false;
 		const me = this;
-		const server = info.chatServer || "chat-ws-1x02.vaughnsoft.net";
+		const server = info.chatServer || chatServerFor(slug);
 		const creds = readChatCredentials(slug);
 		let socket = null;
 		try {
@@ -475,8 +491,16 @@ function fetchStream(slug) {
 	};
 }
 
-function firstWorkingPlaylist(slug) {
-	const urls = HLS_HOSTS.map((host) => host + "/vl/" + slug + ".m3u8");
+const MIN_SEGMENTS = 2;
+
+function segmentCount(resp) {
+	if (!resp || resp.isOk === false) return -1;
+	const body = String(resp.body || "");
+	if (body.indexOf("#EXTM3U") < 0) return -1;
+	return (body.match(/#EXTINF/g) || []).length;
+}
+
+function probePlaylists(urls) {
 	let responses = null;
 	// Probe the hosts at once. A stalled host can take 15+ seconds.
 	try {
@@ -493,11 +517,21 @@ function firstWorkingPlaylist(slug) {
 			try { return http.GET(url, mediaHeaders(), false); } catch (e) { return null; }
 		});
 	}
-	for (let i = 0; i < urls.length; i++) {
-		const resp = responses[i];
-		if (resp && resp.isOk !== false && String(resp.body || "").indexOf("#EXTM3U") >= 0) return urls[i];
+	return responses.map(segmentCount);
+}
+
+// Vaughn packages HLS on demand. The first hit on a cold channel takes 3-5 s and
+// answers 444 or a 0-1 segment playlist, which then fills over ~10-20 s. That
+// first hit also starts the packager, so a later switch to HLS will work.
+// Returns the host with the deepest playlist, or "" when none is ready yet.
+function firstWorkingPlaylist(slug) {
+	const urls = HLS_HOSTS.map((host) => host + "/vl/" + slug + ".m3u8");
+	const counts = probePlaylists(urls);
+	let best = -1;
+	for (let i = 0; i < counts.length; i++) {
+		if (counts[i] >= MIN_SEGMENTS && (best < 0 || counts[i] > counts[best])) best = i;
 	}
-	return "";
+	return best >= 0 ? urls[best] : "";
 }
 
 function makeFlv(slug) {
@@ -596,14 +630,14 @@ function slugFromUrl(url) {
 		const after = rest.split(/[?#]/)[0];
 		if (after !== "" && after !== "/") return "";
 	}
-	return slug;
+	return slug.toLowerCase();
 }
 
 function slugFromChunk(slice) {
 	let m = /vaughn\.live\/([A-Za-z0-9_-]+)/i.exec(slice);
-	if (m && !RESERVED_SLUGS[m[1].toLowerCase()]) return m[1];
+	if (m && !RESERVED_SLUGS[m[1].toLowerCase()]) return m[1].toLowerCase();
 	m = /href="\/([A-Za-z0-9_-]+)"/.exec(slice);
-	if (m && !RESERVED_SLUGS[m[1].toLowerCase()]) return m[1];
+	if (m && !RESERVED_SLUGS[m[1].toLowerCase()]) return m[1].toLowerCase();
 	return "";
 }
 

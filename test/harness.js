@@ -240,8 +240,34 @@ function unitTests() {
 		return { isOk: false, code: 444, body: "" };
 	};
 	const fallback = sandbox.source.getContentDetails("https://vaughn.live/citycam");
-	assert(!fallback.live && fallback.video.sources.length === 1, "no playlist falls back to one flv source");
-	assert(fallback.video.sources[0].url === "https://stream-cdn-iad3.vaughnsoft.net/play/live_citycam.flv", "flv url", fallback.video.sources[0].url);
+	assert(fallback.live && fallback.live.url === "https://stream-cdn-iad3.vaughnsoft.net/play/live_citycam.flv", "no playlist plays flv as the live source", fallback.live && fallback.live.url);
+	assert(fallback.video.sources.length === 1 && /\/vl\/citycam\.m3u8$/.test(fallback.video.sources[0].url), "cold channel offers hls as the alternate", fallback.video.sources[0] && fallback.video.sources[0].url);
+
+	const playlistWith = (n) => "#EXTM3U\n#EXT-X-VERSION:3\n" + Array.from({ length: n }, (_, i) => "#EXTINF:2.000, no desc\nhttps://s3.vaughnsoft.net/live/live_citycam-" + i + ".ts\n").join("");
+	const stubPlaylists = (counts) => {
+		http.GET = function (url) {
+			if (String(url).indexOf("api.vaughnsoft.net") >= 0) {
+				return { isOk: true, code: 200, body: JSON.stringify({ status: 200, live: true, viewers: "3", followers: "1", pageviews: "9", lastlive: "1" }) };
+			}
+			const n = String(url).indexOf("gateway33") >= 0 ? counts[0] : counts[1];
+			return n < 0 ? { isOk: false, code: 444, body: "" } : { isOk: true, code: 200, body: playlistWith(n) };
+		};
+	};
+	stubPlaylists([1, 1]);
+	const thin = sandbox.source.getContentDetails("https://vaughn.live/citycam");
+	assert(thin.live && /\.flv$/.test(thin.live.url), "thin playlists (1 segment) are skipped", thin.live && thin.live.url);
+	stubPlaylists([3, -1]);
+	const ready = sandbox.source.getContentDetails("https://vaughn.live/citycam");
+	assert(ready.live && /gateway33.*\/vl\/citycam\.m3u8$/.test(ready.live.url), "ready playlist plays hls", ready.live && ready.live.url);
+	assert(ready.video.sources.length === 1 && /\.flv$/.test(ready.video.sources[0].url), "flv is offered as the alternate", ready.video.sources[0] && ready.video.sources[0].url);
+	stubPlaylists([2, 5]);
+	const deeper = sandbox.source.getContentDetails("https://vaughn.live/citycam");
+	assert(deeper.live && /clutch/.test(deeper.live.url), "deepest playlist wins", deeper.live && deeper.live.url);
+	stubPlaylists([-1, -1]);
+	const upper = sandbox.source.getContentDetails("https://vaughn.live/CityCam");
+	assert(upper.live && upper.live.url === "https://stream-cdn-iad3.vaughnsoft.net/play/live_citycam.flv", "mixed-case link uses the lowercase slug", upper.live && upper.live.url);
+	assert(slug("https://vaughn.live/TotallY_70s") === "totally_70s", "mixed-case channel url");
+	assert(sandbox.chatServerFor("rootreview") === "chat-ws-1x06.vaughnsoft.net" && sandbox.chatServerFor("RootReview") === "chat-ws-1x06.vaughnsoft.net", "chat server pick ignores case");
 
 	const caps = sandbox.source.getSearchCapabilities();
 	assert(caps.types && caps.types[0] === Type.Feed.Mixed, "search capabilities");
@@ -448,6 +474,47 @@ function liveTests() {
 		assert(recs.results.every((item) => item.url !== home.pager.results[0].url), "live recommendations omit the current stream");
 	} else fail("live home", home.ok ? "no cards" : home.message);
 
+	if (home.ok && home.count > 1) {
+		const slugs = home.pager.results.map((item) => sandbox.slugFromUrl(item.url)).filter(Boolean);
+		const flvHeader = (u) => {
+			const out = path.join("/tmp", "vaughn-live-check.bin");
+			try { fs.unlinkSync(out); } catch (e) {}
+			try { execFileSync("curl", ["-sS", "--max-time", "4", "-A", "Mozilla/5.0", "-H", "Referer: https://vaughn.live/", "-o", out, u], { stdio: "ignore" }); } catch (e) {}
+			const head = fs.existsSync(out) ? fs.readFileSync(out).slice(0, 3).toString("latin1") : "";
+			try { fs.unlinkSync(out); } catch (e) {}
+			return head;
+		};
+		const checkPlayable = (label, url) => {
+			let d;
+			try { d = sandbox.source.getContentDetails(url); } catch (err) { fail(label + " details", err.message); return; }
+			const liveUrl = d.live && String(d.live.url);
+			assert(!!liveUrl, label + " has a live source", liveUrl);
+			const alt = d.video.sources[0] && d.video.sources[0].url;
+			assert(!!alt && alt !== liveUrl, label + " has an alternate source", alt);
+			const flvUrl = /\.flv$/.test(liveUrl) ? liveUrl : alt;
+			assert(flvHeader(flvUrl) === "FLV", label + " flv plays (" + (/\.flv$/.test(liveUrl) ? "flv first" : "hls first") + ")", flvUrl);
+			return d;
+		};
+		const popular = slugs[0];
+		checkPlayable("popular " + popular, "https://vaughn.live/" + popular);
+		const quiet = slugs[slugs.length - 1];
+		checkPlayable("quiet " + quiet, "https://vaughn.live/" + quiet);
+		const mixedUrl = "https://vaughn.live/" + popular.charAt(0).toUpperCase() + popular.slice(1, -1) + popular.slice(-1).toUpperCase();
+		const md = checkPlayable("mixed-case link " + mixedUrl.split("/").pop(), mixedUrl);
+		if (md) assert(String(md.live.url + " " + md.video.sources[0].url).indexOf(popular) >= 0, "mixed-case link resolves to the lowercase stream");
+		let agree = 0, checked = 0;
+		slugs.slice(0, 15).concat(["tech_corner", "community", "mark"]).forEach((sl) => {
+			const r = curlGet("https://api.vaughnsoft.net/v1/stream/vl/" + sl);
+			let cs = "";
+			try { cs = JSON.parse(r.body).chat_server || ""; } catch (e) {}
+			if (!cs) return;
+			checked += 1;
+			if (cs === sandbox.chatServerFor(sl)) agree += 1;
+			else console.error("chat server mismatch", sl, cs, sandbox.chatServerFor(sl));
+		});
+		assert(checked > 0 && agree === checked, "chat server pick matches the API (" + agree + "/" + checked + ")");
+	}
+
 	try {
 		const searched = sandbox.source.search("radio");
 		assert(searched.results.length > 0, "live search returned channels");
@@ -464,9 +531,12 @@ function liveTests() {
 	if (details) {
 		assert(details.isLive === true, "totally_70s is live");
 		assert(details.viewCount >= 0, "viewer count present", details.viewCount);
-		if (!details.live) {
-			const flv = details.video && details.video.sources[0];
-			assert(flv && /\.flv$/.test(flv.url), "flv fallback when no playlist answered", flv && flv.url);
+		assert(!!details.live, "live source is always set (chat needs it)");
+		const liveIsHls = details.live && String(details.live.url).indexOf(".m3u8") > 0;
+		const alt = details.video && details.video.sources[0];
+		if (!liveIsHls) {
+			assert(details.live && /\.flv$/.test(details.live.url), "flv plays when no playlist is ready", details.live && details.live.url);
+			assert(alt && /\.m3u8$/.test(alt.url), "hls offered as the alternate", alt && alt.url);
 		}
 		const flvPath = path.join("/tmp", "vaughn-live-flv.bin");
 		try { fs.unlinkSync(flvPath); } catch (e) {}
@@ -475,9 +545,8 @@ function liveTests() {
 		const flvHead = fs.existsSync(flvPath) ? fs.readFileSync(flvPath).slice(0, 3).toString("latin1") : "";
 		assert(flvHead === "FLV", "flv stream starts with an FLV header", flvHead);
 	}
-	if (details && details.live) {
-		assert(String(details.live.url).indexOf(".m3u8") > 0, "hls url", details.live.url);
-		assert(details.video && details.video.sources.length === 0, "no flv source when hls works");
+	if (details && details.live && String(details.live.url).indexOf(".m3u8") > 0) {
+		assert(details.video && details.video.sources.length === 1 && /\.flv$/.test(details.video.sources[0].url), "flv offered as the alternate when hls works");
 		const playlist = curlGet(details.live.url, { Referer: "https://vaughn.live/" });
 		assert(playlist.isOk && playlist.body.indexOf("#EXTM3U") >= 0, "playlist downloads", playlist.code);
 		const segment = (playlist.body.match(/^https?:\/\/\S+\.ts$/m) || [])[0];
