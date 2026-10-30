@@ -51,7 +51,7 @@
 			"Live chat uses the pop-out chat page."
 		],
 		"6": [
-			"Fixes \"No HLS playlist was available\": HLS hosts are probed together, gateway33 first, and playback falls back to the site's HTTP-FLV stream when no playlist answers."
+			"Streams that wouldn't load should play again now."
 		]
 	}
 }
