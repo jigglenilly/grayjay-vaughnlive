@@ -51,7 +51,7 @@
 			"Live chat uses the pop-out chat page."
 		],
 		"6": [
-			"Streams that wouldn't load should play again now."
+			"Added backup stream servers so channels that wouldn't load play again."
 		]
 	}
 }
