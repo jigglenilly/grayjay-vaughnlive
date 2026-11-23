@@ -7,11 +7,11 @@
 	"sourceUrl": "https://raw.githubusercontent.com/jigglenilly/grayjay-vaughnlive/main/VaughnLiveConfig.json",
 	"repositoryUrl": "https://github.com/jigglenilly/grayjay-vaughnlive",
 	"scriptUrl": "./VaughnLiveScript.js",
-	"version": 7,
+	"version": 8,
 	"iconUrl": "./VaughnLiveIcon.png",
 	"id": "a3e5e2d9-8a86-4704-be0e-c32bca484265",
-	"scriptSignature": "",
-	"scriptPublicKey": "",
+	"scriptSignature": "Z0pF2hLa9QYgLNuqyxV35B/iaxHMvkG7garACztLR+n0AXobqbFjCuEEDxtbdCjjA4yz4PYlwIMXdpTzb/nKRbH+PFQhiYTt9NMZNTbkcQg1ByK83fuz7+oeyuy+EYG5hQPEIq1WAtjkaw85BBVKtTc52g8zNHsBklhakTDfsFPE7aTNQxE/HwPicEr4bOy74Ba4nMCCB8E4fO4GkTn8I9KmgOaQvr99V5JaGlkTymMBuJVKZBybNCdgf0YCjkzFGnU2qmrryeOGobwJYZbrEIa91XaVU3LqsFVujm+xPgl2YB1Aa9PDUzT4LBsK3co0OwbQ0FIWDNr7LW0znerWJA==",
+	"scriptPublicKey": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAskf0B/upJL3LDwRqYwMi6hZYxnS3vCRBOCq7CQxZm27QmgRgYUbOMFoyKqeIscgyJ6Pu2k89BPhzGy5VJhV6b2HWsXkc1r38y4xgqRfpQLMN1iHhwdgbier1JRDs5RXv+sEVgktc3Zlna8/mlOp73YgZRYbW9ZBF91PtlUpiuMMV44szI2sbWao88fOcyVjHOG7SqPfX2+AGUvVVFE63Hm7Nfmg8PV+0hgx3WYK0AMCtbFcHzQmolCEjxmeQLlGMK2bHlBE7gBkqT3KAE/0dIZHx2wNVQivYkBuzKsP09xxfBZTU7WEJEfBrI+3s7e9odvV+3s5UC96hsrmgieCiwQIDAQAB",
 	"packages": [
 		"Http"
 	],
@@ -59,6 +59,9 @@
 			"Quiet channels skip half-loaded streams so they don't stall",
 			"You can switch between the main and backup stream if one acts up",
 			"Chat connects to the right server for every channel"
+		],
+		"8": [
+			"Added a plugin signature so Grayjay can verify future updates come from us."
 		]
 	}
 }
